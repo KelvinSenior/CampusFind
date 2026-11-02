@@ -37,7 +37,10 @@ import { categories, locations } from '../core/models';
               <label>More specific location <span class="optional-label">Optional</span><input formControlName="locationDetails" placeholder="e.g. Second floor study area" /></label>
             </div>
           </div></div>
-          <div class="form-submit"><p>By submitting, you confirm these details are accurate and appropriate to share.</p><button class="button button-primary button-large" type="submit" [disabled]="busy || form.invalid">{{ busy ? 'Submitting…' : 'Submit for review' }} <span aria-hidden="true">→</span></button></div>
+          @if (submitAttempted && form.invalid) {
+            <div class="notice notice-error report-validation" role="alert">Please check: {{ invalidFieldNames.join(', ') }}.</div>
+          }
+          <div class="form-submit"><p>By submitting, you confirm these details are accurate and appropriate to share.</p><button class="button button-primary button-large" type="submit" [disabled]="busy">{{ busy ? 'Submitting…' : 'Submit for review' }} <span aria-hidden="true">→</span></button></div>
         </form>
       }
     </section>
@@ -62,9 +65,28 @@ export class ReportPage {
   protected busy = false;
   protected success = false;
   protected error = '';
+  protected submitAttempted = false;
+
+  protected get invalidFieldNames() {
+    const controls = this.form.controls;
+    const fields: string[] = [];
+    if (controls.itemName.invalid) fields.push('item name (2-100 characters)');
+    if (controls.category.invalid) fields.push('category');
+    if (controls.dateOccurred.invalid) fields.push('date lost or found');
+    if (controls.description.invalid) fields.push('description (10-2000 characters)');
+    if (controls.identifyingDetails.invalid) fields.push('private identifying detail (up to 1000 characters)');
+    if (controls.location.invalid) fields.push('campus location');
+    if (controls.locationDetails.invalid) fields.push('specific location (up to 200 characters)');
+    return fields;
+  }
 
   protected submit() {
-    if (this.form.invalid || this.busy) return;
+    this.submitAttempted = true;
+    if (this.busy) return;
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
     this.busy = true;
     this.error = '';
     const value = this.form.getRawValue();
