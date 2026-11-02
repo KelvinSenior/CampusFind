@@ -1,8 +1,9 @@
 import 'dotenv/config';
 import bcrypt from 'bcryptjs';
-import { PrismaClient, type CampusLocation, type ItemCategory, type ReportType } from '@prisma/client';
+import { type CampusLocation, type ItemCategory, type ReportType } from '@prisma/client';
+import { getPrismaClient } from '../src/database.js';
 
-const prisma = new PrismaClient();
+const prisma = getPrismaClient();
 const isProduction = process.env.NODE_ENV === 'production';
 const demoPassword = process.env.DEMO_PASSWORD;
 

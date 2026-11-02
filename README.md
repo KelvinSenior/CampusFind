@@ -127,23 +127,34 @@ Demo accounts have full database-backed histories. Public demo users can change 
 | Method | Endpoint | Access | Purpose |
 |---|---|---|---|
 | GET | `/api/health` | Public | Health check |
+| GET | `/api/demo/config` | Public | Return demo accounts when demo mode is enabled |
 | POST | `/api/auth/register` | Public | Register as a student |
 | POST | `/api/auth/login` | Public | Authenticate |
 | GET | `/api/auth/me` | Authenticated | Current account |
 | GET | `/api/reports` | Public | Browse and filter approved/recovered reports |
 | GET | `/api/reports/:id` | Public | View report details |
+| GET | `/api/announcements` | Public | List published campus notices |
 | POST | `/api/reports` | Student | Submit a report for review |
 | GET | `/api/my/reports` | Authenticated | List own reports |
 | PATCH / DELETE | `/api/reports/:id` | Owner | Edit or delete own pending/rejected report |
 | GET | `/api/reports/:id/matches` | Owner or admin | Suggest possible found-item matches |
 | PATCH | `/api/reports/:id/moderate` | Admin | Approve or reject a report |
 | POST | `/api/reports/:id/claims` | Student | Claim a found item |
+| POST | `/api/reports/:id/abuse-reports` | Student | Report a listing concern |
+| GET / POST / DELETE | `/api/saved-items` and `/api/saved-items/:reportId` | Student | List, add, or remove a saved report |
 | GET | `/api/my/claims` | Authenticated | List own claims |
+| GET | `/api/my/dashboard` | Authenticated | Get live student counts, matches, and activity |
 | GET | `/api/reports/:id/claims` | Report owner or admin | Review claims |
 | PATCH | `/api/claims/:id/review` | Report owner or admin | Approve or reject a claim |
 | POST | `/api/admin/claims/:id/verify-handover` | Admin | Verify handover and recover item |
 | GET | `/api/admin/reports` | Admin | Load report moderation queue |
 | GET | `/api/admin/claims` | Admin | Load claim review and handover queues |
+| GET / POST | `/api/admin/announcements` | Admin | List and create notices |
+| PATCH / DELETE | `/api/admin/announcements/:id` | Admin | Edit, publish, unpublish, or delete notices |
+| GET / PATCH | `/api/admin/abuse-reports` | Admin | Review and resolve listing concerns |
+| GET | `/api/admin/users` | Admin | Search student accounts |
+| PATCH | `/api/admin/users/:id/status` | Admin | Suspend or reactivate students |
+| GET | `/api/admin/activity` | Admin | List recent platform activity |
 | GET | `/api/notifications` | Authenticated | List own notifications |
 | PATCH | `/api/notifications/:id/read` | Authenticated | Mark own notification read |
 | GET | `/api/admin/dashboard` | Admin | Get live platform counts |
