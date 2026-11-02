@@ -41,7 +41,6 @@ export class AuthService {
 
   async restoreSession(): Promise<boolean> {
     try {
-      await this.ensureCsrfToken();
       const result = await firstValueFrom(this.http.get<{ user: User }>(`${API_URL}/auth/me`));
       this.user.set(result.user);
       this.sessionError.set(null);
