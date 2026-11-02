@@ -16,7 +16,7 @@
     "frontend": {
       "root": "frontend",
       "framework": "angular",
-      "installCommand": "npm ci",
+      "installCommand": "npm ci --include=optional",
       "buildCommand": "npm run build",
       "outputDirectory": "dist/frontend/browser"
     }
