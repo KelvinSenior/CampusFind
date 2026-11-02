@@ -6,10 +6,11 @@
       "framework": "express",
       "entrypoint": "src/app.ts",
       "installCommand": "npm ci --workspaces=false",
-      "buildCommand": "npm run db:generate && npm run build",
+      "buildCommand": "npm run db:generate && npm run build && npm prune --omit=dev --workspaces=false",
       "functions": {
         "src/app.ts": {
-          "maxDuration": 30
+          "maxDuration": 30,
+          "includeFiles": "node_modules/**"
         }
       }
     },
