@@ -1,0 +1,160 @@
+:host {
+  display: block;
+  min-height: 100vh;
+}
+
+.site-header {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  height: 76px;
+  justify-content: space-between;
+  padding: 0 clamp(24px, 6vw, 96px);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.brand {
+  align-items: center;
+  color: var(--navy);
+  display: inline-flex;
+  font-size: 19px;
+  font-weight: 750;
+  gap: 10px;
+  letter-spacing: -0.7px;
+  text-decoration: none;
+}
+
+.brand-mark,
+.art-mini-logo {
+  align-items: center;
+  background: var(--navy);
+  border-radius: 10px;
+  color: white;
+  display: inline-flex;
+  font-size: 16px;
+  font-weight: 800;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
+}
+
+.brand-accent {
+  color: var(--blue);
+}
+
+.main-nav,
+.header-actions {
+  align-items: center;
+  display: flex;
+  gap: 30px;
+}
+
+.main-nav a,
+.login-link {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.18s ease;
+}
+
+.main-nav a:hover,
+.main-nav a.active,
+.login-link:hover {
+  color: var(--navy);
+}
+
+.header-actions {
+  gap: 20px;
+}
+
+.welcome-name {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.site-footer {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  display: flex;
+  font-size: 12px;
+  justify-content: space-between;
+  min-height: 90px;
+  padding: 20px clamp(24px, 6vw, 96px);
+}
+
+.footer-brand {
+  font-size: 16px;
+}
+
+.footer-brand .brand-mark {
+  border-radius: 8px;
+  height: 29px;
+  width: 29px;
+}
+
+.site-footer p {
+  margin: 0;
+}
+
+.session-alert {
+  background: #fff1f0;
+  border-bottom: 1px solid #f4d0cc;
+  color: #a13e37;
+  font-size: 12px;
+  padding: 10px 24px;
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .site-header {
+    height: 66px;
+    padding: 0 18px;
+  }
+
+  .main-nav {
+    gap: 14px;
+  }
+
+  .main-nav a {
+    font-size: 12px;
+  }
+
+  .header-actions {
+    gap: 11px;
+  }
+
+  .welcome-name {
+    display: none;
+  }
+
+  .site-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+    padding: 24px;
+  }
+}
+
+@media (max-width: 420px) {
+  .brand {
+    font-size: 16px;
+  }
+
+  .brand-mark {
+    height: 30px;
+    width: 30px;
+  }
+
+  .main-nav {
+    gap: 9px;
+  }
+
+  .main-nav a {
+    font-size: 11px;
+  }
+}

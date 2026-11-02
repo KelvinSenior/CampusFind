@@ -1,0 +1,27 @@
+{
+  "name": "campusfind",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Campus lost property and recovery platform",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n api,web \"npm run dev --workspace=backend\" \"npm run dev --workspace=frontend\"",
+    "dev:lan": "concurrently -k -n api,web \"npm run dev --workspace=backend\" \"npm run dev:lan --workspace=frontend\"",
+    "build": "npm run db:generate -w backend && npm run build -w backend && npm run build -w frontend",
+    "vercel-build": "npm run db:generate -w backend && npm run build -w backend && npm run build -w frontend",
+    "test": "npm test -w backend && npm test -w frontend -- --watch=false"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@neon/config": "^1.10.0",
+    "@neon/env": "^1.6.8"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

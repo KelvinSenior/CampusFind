@@ -1,0 +1,15 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^node --version; npm --version; npx ng version$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^Set-Location 'C:\\\\Users\\\\USER\\\\Desktop\\\\SKS\\\\SKS Codes\\\\CampusFind\\\\backend'; npm audit --omit=dev --json$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "git remote": true,
+        "git ls-remote": true,
+        "git fetch": true
+    }
+}

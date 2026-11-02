@@ -1,0 +1,42 @@
+<header class="site-header">
+  <a class="brand" routerLink="/" aria-label="CampusFind home">
+    <span class="brand-mark">C</span>
+    <span>Campus<span class="brand-accent">Find</span></span>
+  </a>
+  <nav class="main-nav" aria-label="Main navigation">
+    <a routerLink="/browse" routerLinkActive="active">Browse items</a>
+    @if (auth.user()?.role === 'ADMIN') {
+      <a routerLink="/admin" routerLinkActive="active">Admin</a>
+    } @else if (auth.user()) {
+      <a routerLink="/dashboard" routerLinkActive="active">My activity</a>
+      <a routerLink="/report" routerLinkActive="active">Report an item</a>
+    } @else {
+      <a routerLink="/report" routerLinkActive="active">Report an item</a>
+    }
+  </nav>
+  <div class="header-actions">
+    @if (auth.user(); as user) {
+      <span class="welcome-name">Hi, {{ user.name.split(' ')[0] }}</span>
+      <button class="button button-outline button-small" type="button" (click)="logout()">Log out</button>
+    } @else {
+      <a class="login-link" routerLink="/login">Log in</a>
+      <a class="button button-primary button-small" routerLink="/register">Get started</a>
+    }
+  </div>
+</header>
+@if (auth.sessionError(); as sessionError) {
+  <div class="session-alert" role="alert">{{ sessionError }}</div>
+}
+
+<main>
+  <router-outlet />
+</main>
+
+<footer class="site-footer">
+  <a class="brand footer-brand" routerLink="/">
+    <span class="brand-mark">C</span>
+    <span>Campus<span class="brand-accent">Find</span></span>
+  </a>
+  <p>Lost something? Find it. Found something? Return it.</p>
+  <span>© 2026 CampusFind</span>
+</footer>
