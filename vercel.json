@@ -12,6 +12,10 @@
   },
   "rewrites": [
     {
+      "source": "/api/:path*",
+      "destination": "/api/index?__vercelApiPath=:path*"
+    },
+    {
       "source": "/:path((?!api).*)",
       "destination": "/index.html"
     }
