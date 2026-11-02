@@ -2,13 +2,16 @@
 
 Base URL: `http://localhost:3000/api`
 
-Authenticated routes accept `Authorization: Bearer <token>`. Request bodies are JSON. The API never accepts a client-supplied user ID or role for ownership decisions.
+Authenticated routes use an HTTP-only session cookie and a CSRF token header on state-changing requests. Request bodies are JSON. The API never accepts a client-supplied user ID or role for ownership decisions.
 
 ## Authentication
 
-- `POST /auth/register` — `{ "name", "email", "password" }`; creates a student.
-- `POST /auth/login` — `{ "email", "password" }`; returns `{ "token", "user" }`.
+- `GET /auth/csrf` — establishes the CSRF cookie and returns its request token.
+- `POST /auth/register` — validated first/last name, email, password, and terms acceptance; creates a student only.
+- `POST /auth/login` — `{ "email", "password" }`; sets the session cookie.
+- `POST /auth/logout` — clears the session.
 - `GET /auth/me` — returns the authenticated user.
+- `GET /demo/config` — exposes demo accounts only when demo mode is enabled.
 
 ## Reports and claims
 
@@ -20,6 +23,9 @@ Authenticated routes accept `Authorization: Bearer <token>`. Request bodies are 
 - `GET /reports/:id/matches` — owner/admin gets ranked potential found-item suggestions for a lost report.
 - `PATCH /reports/:id/moderate` — admin `{ "status": "APPROVED" | "REJECTED" }`.
 - `POST /reports/:id/claims` — student submits ownership explanation and evidence.
+- `POST /reports/:id/abuse-reports` — student submits a listing concern.
+- `GET /saved-items` / `POST /saved-items/:reportId` / `DELETE /saved-items/:reportId` — student's saved listings.
+- `GET /announcements` — published campus notices.
 - `GET /my/claims` — claimant's claims and authorised handover code.
 - `GET /reports/:id/claims` — found-report owner or admin gets claim evidence.
 - `PATCH /claims/:id/review` — found-report owner or admin approves/rejects a pending claim.
@@ -29,8 +35,13 @@ Authenticated routes accept `Authorization: Bearer <token>`. Request bodies are 
 
 - `GET /notifications` — own notifications.
 - `PATCH /notifications/:id/read` — marks an owned notification read.
-- `GET /admin/dashboard` — live aggregate counters for administrators.
+- `GET /my/dashboard` — live student counts, potential matches, and recent activity.
+- `GET /admin/dashboard` — live aggregate counters and recent activity for administrators.
 - `GET /admin/reports?status=PENDING` / `GET /admin/claims?status=PENDING` — admin review queues.
+- `GET/POST /admin/announcements`, `PATCH/DELETE /admin/announcements/:id` — administer campus notices.
+- `GET /admin/abuse-reports` / `PATCH /admin/abuse-reports/:id` — review listing concerns.
+- `GET /admin/users` / `PATCH /admin/users/:id/status` — list students and suspend/reactivate accounts.
+- `GET /admin/activity` — recent platform activity.
 
 ## Common responses
 

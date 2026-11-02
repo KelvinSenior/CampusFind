@@ -5,7 +5,7 @@ import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { AuthService } from '../core/auth.service';
 import { ReportsService } from '../core/reports.service';
-import type { Claim, ItemReport, PotentialMatch } from '../core/models';
+import type { Announcement, Claim, ItemReport, PotentialMatch, SavedItem, StudentStatistics } from '../core/models';
 import { categories, labelFor } from '../core/models';
 
 @Component({
@@ -20,10 +20,11 @@ import { categories, labelFor } from '../core/models';
       @if (loading) { <div class="loading-state"><span class="spinner"></span> Loading your activity…</div> }
       @if (!loading) {
         <div class="stat-grid">
-          <article class="stat-card"><span class="stat-icon blue-icon">⌁</span><div><small>My reports</small><strong>{{ reports.length }}</strong></div></article>
-          <article class="stat-card"><span class="stat-icon amber-icon">◷</span><div><small>Pending claims</small><strong>{{ pendingClaims }}</strong></div></article>
-          <article class="stat-card"><span class="stat-icon green-icon">✓</span><div><small>Items recovered</small><strong>{{ recovered }}</strong></div></article>
-          <article class="stat-card"><span class="stat-icon violet-icon">✦</span><div><small>Unread updates</small><strong>{{ unreadNotifications }}</strong></div></article>
+          <article class="stat-card"><span class="stat-icon blue-icon">⌁</span><div><small>My reports</small><strong>{{ stats?.reports ?? 0 }}</strong></div></article>
+          <article class="stat-card"><span class="stat-icon amber-icon">◷</span><div><small>Pending claims</small><strong>{{ stats?.pendingClaims ?? 0 }}</strong></div></article>
+          <article class="stat-card"><span class="stat-icon green-icon">✓</span><div><small>Items recovered</small><strong>{{ stats?.recoveredItems ?? 0 }}</strong></div></article>
+          <article class="stat-card"><span class="stat-icon violet-icon">✦</span><div><small>Unread updates</small><strong>{{ stats?.unreadNotifications ?? 0 }}</strong></div></article>
+          <article class="stat-card"><span class="stat-icon amber-icon">⌕</span><div><small>Potential matches</small><strong>{{ stats?.potentialMatches ?? 0 }}</strong></div></article>
         </div>
 
         <div class="dashboard-grid">
@@ -97,6 +98,13 @@ import { categories, labelFor } from '../core/models';
                 </article>
               }
             </section>
+            <section class="dashboard-panel">
+              <div class="panel-heading"><div><h2>Saved items</h2><p>Your bookmarked campus reports</p></div></div>
+              @if (!savedItems.length) { <div class="panel-empty"><p>No saved items yet.</p><a routerLink="/browse">Find an item to save →</a></div> }
+              @for (saved of savedItems; track saved.id) {
+                <article class="saved-row"><a [routerLink]="['/items', saved.report.id]"><strong>{{ saved.report.itemName }}</strong><small>{{ saved.report.reference }} · {{ saved.report.reportType }}</small></a><button type="button" class="mini-action" (click)="removeSavedItem(saved.report.id)" [disabled]="actionId === saved.report.id">Remove</button></article>
+              }
+            </section>
             <section class="dashboard-panel notifications-panel">
               <div class="panel-heading"><div><h2>Recent updates</h2><p>Notifications about your activity</p></div></div>
               @if (!notifications.length) { <div class="panel-empty"><p>You’re all caught up.</p></div> }
@@ -105,6 +113,20 @@ import { categories, labelFor } from '../core/models';
                   <span class="notification-dot"></span><div><strong>{{ notification.title }}</strong><p>{{ notification.message }}</p><small>{{ notification.createdAt | date:'MMM d, h:mm a' }}</small></div>
                   @if (!notification.isRead) { <button type="button" class="read-action" (click)="markRead(notification.id)">Mark read</button> }
                 </article>
+              }
+            </section>
+            <section class="dashboard-panel">
+              <div class="panel-heading"><div><h2>Campus announcements</h2><p>Published notices</p></div></div>
+              @if (!announcements.length) { <div class="panel-empty"><p>No current announcements.</p></div> }
+              @for (announcement of announcements; track announcement.id) {
+                <article class="announcement-row"><div><strong>{{ announcement.title }}</strong><small>{{ announcement.category ?? 'Campus notice' }} · {{ announcement.publishedAt | date:'MMM d' }}</small><p>{{ announcement.content }}</p></div></article>
+              }
+            </section>
+            <section class="dashboard-panel">
+              <div class="panel-heading"><div><h2>Recent activity</h2><p>Updates recorded for your account</p></div></div>
+              @if (!stats?.recentActivities?.length) { <div class="panel-empty"><p>No recent activity yet.</p></div> }
+              @for (activity of stats?.recentActivities ?? []; track activity.id) {
+                <article class="activity-row"><strong>{{ activity.action.replaceAll('_', ' ') }}</strong><small>{{ activity.createdAt | date:'MMM d, h:mm a' }}</small></article>
               }
             </section>
           </aside>
@@ -124,6 +146,9 @@ export class DashboardPage implements OnInit {
   });
   protected reports: ItemReport[] = [];
   protected claims: Claim[] = [];
+  protected savedItems: SavedItem[] = [];
+  protected announcements: Announcement[] = [];
+  protected stats: StudentStatistics | null = null;
   protected notifications: Array<{ id: string; title: string; message: string; isRead: boolean; createdAt: string }> = [];
   protected ownerClaims: Claim[] = [];
   protected matches: PotentialMatch[] = [];
@@ -135,12 +160,6 @@ export class DashboardPage implements OnInit {
   protected editingReportId = '';
   protected selectedReportId = '';
   protected matchReportId = '';
-  protected get pendingClaims() { return this.claims.filter((claim) => claim.status === 'PENDING').length; }
-  protected get recovered() {
-    return this.reports.filter((report) => report.status === 'RECOVERED').length
-      + this.claims.filter((claim) => claim.status === 'COMPLETED').length;
-  }
-  protected get unreadNotifications() { return this.notifications.filter((notification) => !notification.isRead).length; }
   protected get firstName() { return this.auth.user()?.name.split(' ')[0] ?? 'there'; }
 
   ngOnInit() { this.load(); }
@@ -181,11 +200,17 @@ export class DashboardPage implements OnInit {
       reports: this.api.mine(),
       claims: this.api.myClaims(),
       notifications: this.api.notifications(),
+      savedItems: this.api.savedItems(),
+      announcements: this.api.announcements(),
+      stats: this.api.myDashboard(),
     }).subscribe({
       next: (data) => {
         this.reports = data.reports.reports;
         this.claims = data.claims.claims;
         this.notifications = data.notifications.notifications;
+        this.savedItems = data.savedItems.savedItems;
+        this.announcements = data.announcements.announcements;
+        this.stats = data.stats;
         this.loading = false;
         this.changeDetector.markForCheck();
       },
@@ -252,8 +277,20 @@ export class DashboardPage implements OnInit {
 
   protected markRead(id: string) {
     this.api.markNotificationRead(id).subscribe({
-      next: () => { this.notifications = this.notifications.map((notification) => notification.id === id ? { ...notification, isRead: true } : notification); this.changeDetector.markForCheck(); },
+      next: () => {
+        this.notifications = this.notifications.map((notification) => notification.id === id ? { ...notification, isRead: true } : notification);
+        if (this.stats) this.stats = { ...this.stats, unreadNotifications: Math.max(0, this.stats.unreadNotifications - 1) };
+        this.changeDetector.markForCheck();
+      },
       error: (error) => { this.error = error?.error?.error ?? 'Unable to update the notification.'; this.changeDetector.markForCheck(); },
+    });
+  }
+
+  protected removeSavedItem(reportId: string) {
+    this.actionId = reportId;
+    this.api.removeSavedItem(reportId).subscribe({
+      next: () => { this.savedItems = this.savedItems.filter((saved) => saved.report.id !== reportId); this.actionId = ''; this.changeDetector.markForCheck(); },
+      error: (error) => { this.error = error?.error?.error ?? 'Unable to remove the saved item.'; this.actionId = ''; this.changeDetector.markForCheck(); },
     });
   }
 }

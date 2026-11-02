@@ -22,8 +22,9 @@ Lost property on campus is often handled through scattered messages, office visi
 - Student and administrator dashboards with real database-backed counts and moderation queues.
 - Report moderation and ownership claim workflows, including claimant notifications.
 - Handover codes after claim approval, with administrator-only completion.
-- PostgreSQL-ready Prisma schema for production workloads, while local development can continue to use SQLite or a local Postgres connection.
+- PostgreSQL Prisma schema with repeatable additive demonstration seeding.
 - Angular responsive client shell connected to the same-origin REST API.
+- Database-backed saved items, announcements, abuse reporting, student suspension, and activity history.
 
 ## Technology
 
@@ -39,7 +40,7 @@ Lost property on campus is often handled through scattered messages, office visi
 ```text
 CampusFind/
 ├── backend/
-│   ├── prisma/          # SQLite schema, migrations, and seed
+│   ├── prisma/          # PostgreSQL schema, migrations, and seed
 │   ├── src/              # Express API and match scoring
 │   └── API.md            # Endpoint details
 └── frontend/
@@ -63,17 +64,36 @@ CampusFind/
 
    Install only once from the root; do not run `npm ci` separately in `backend` or `frontend`.
 
-2. Configure the API in `backend/.env` (copy `backend/.env.example` if needed). Set PostgreSQL `DATABASE_URL` and `DIRECT_URL`, a random `JWT_SECRET` of at least 32 characters, and local `ADMIN_EMAIL` and `ADMIN_PASSWORD` values. The seed administrator password must be at least 14 characters.
+2. Configure the API in `backend/.env` (copy `backend/.env.example` if needed). Set PostgreSQL `DATABASE_URL` and `DIRECT_URL`, and a random `JWT_SECRET` of at least 32 characters. For a local coursework demo, keep `DEMO_MODE_ENABLED=true` and set a strong `DEMO_PASSWORD` of at least 14 characters. Use a unique password for any public deployment.
 
-3. Generate Prisma Client, apply the database migrations, and load demonstration data:
+3. Generate Prisma Client and apply database migrations:
 
    ```powershell
    npm run db:generate --workspace=backend
    npm run db:migrate --workspace=backend
-   npm run db:seed --workspace=backend
    ```
 
-4. Start both the API and frontend together from the repository root:
+4. To add or refresh the demonstration records, explicitly opt in for that command:
+
+   ```powershell
+   $env:ALLOW_DEMO_SEED = "YES"
+   npm run db:seed --workspace=backend
+   Remove-Item Env:ALLOW_DEMO_SEED
+   ```
+
+   The seed uses stable demo identifiers and upserts only those records. It does not reset or delete other database records. Production also requires `DEMO_MODE_ENABLED=true` and an explicitly configured `DEMO_PASSWORD`. Seeding is never part of application startup or the Vercel build.
+
+   To remove only reserved `CF-DEMO*` reports and their dependent claims, bookmarks, and abuse reports in a non-production environment, run this destructive command deliberately:
+
+   ```powershell
+   $env:ALLOW_DEMO_RESET = "YES"
+   npm run db:reset:demo --workspace=backend -- --confirm=RESET-CAMPUSFIND-DEMO
+   Remove-Item Env:ALLOW_DEMO_RESET
+   ```
+
+   The reset refuses `NODE_ENV=production` and preserves demo accounts, non-demo reports, and other users' records. It does not run during deployment.
+
+5. Start both the API and frontend together from the repository root:
 
    ```powershell
    npm run dev
@@ -89,14 +109,18 @@ This LAN mode is for temporary demos on a trusted network, not public hosting. S
 
 ## Demo accounts
 
-The seed script creates an administrator using `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` in `backend/.env`. The local example values are `admin@campusfind.local` / `ChangeMe123!`; change these before seeding if desired. The seed script refuses to run when `NODE_ENV=production`.
+The demo seed creates one administrator and five students. All use the configured `DEMO_PASSWORD`; the local example is `CampusFind@2026`.
 
-Seeded students:
+| Role | Name | Email |
+|---|---|---|
+| Administrator | CampusFind Administrator | `admin@campusfind.demo` |
+| Student | Daniel Mensah | `daniel@campusfind.demo` |
+| Student | Ama Boateng | `ama@campusfind.demo` |
+| Student | Michael Owusu | `michael@campusfind.demo` |
+| Student | Grace Asante | `grace@campusfind.demo` |
+| Student | Kwame Addo | `kwame@campusfind.demo` |
 
-- `alex.student@campusfind.local` / `Student123!`
-- `sam.student@campusfind.local` / `Student123!`
-
-Demonstration credentials are for local coursework only. Never reuse them in a deployed environment.
+Demo accounts have full database-backed histories. Public demo users can change demo data through normal workflows; never seed these accounts into a database containing sensitive real-user data.
 
 ## API overview
 
@@ -132,15 +156,15 @@ The Prisma schema defines users, item reports, claims, notifications, saved item
 
 ## Known limitations
 
-- The core implementation covers auth, reporting, browsing, claims, moderation, handover, matching, and student/admin dashboards. Image uploads, saved-item and abuse-report workflows, announcement management, user suspension, and analytics charts are not complete yet.
-- Local development uses a SQLite file and a fixed localhost API URL.
+- Image uploads are not implemented; report images can only use an externally hosted URL.
 - JWTs expire after 24 hours; token revocation and email verification are not implemented.
-- Upload storage and deployment hardening are future work.
+- Dashboard charts currently show live aggregate counts, not time-series analytics.
+- The live Vercel deployment and external PostgreSQL workflows require hosting credentials and have not been verified by the automated tests.
 
 ## Future improvements
 
-- Add validated image uploads, saved items, abuse reporting, announcement management, and richer charts.
-- Expand automated API tests to cover permissions, moderation, and claim transitions.
+- Add validated image uploads and richer time-series analytics.
+- Expand automated API tests to cover permissions, moderation, account suspension, saved items, and claim transitions.
 - Add refresh/revocation strategy and production hosting configuration.
 
 ## Validation

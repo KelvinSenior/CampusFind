@@ -3,6 +3,8 @@ import { ChangeDetectorRef, Component, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../core/auth.service';
+import { ReportsService } from '../core/reports.service';
+import type { DemoConfig } from '../core/models';
 
 @Component({
   imports: [ReactiveFormsModule, RouterLink],
@@ -19,6 +21,19 @@ import { AuthService } from '../core/auth.service';
           <h2>{{ registering ? 'Create your account' : 'Log in to CampusFind' }}</h2>
           <p class="form-intro">{{ registering ? 'Join with your university email and help keep campus connected.' : 'Pick up where you left off.' }}</p>
           @if (error) { <div class="notice notice-error" role="alert">{{ error }}</div> }
+          @if (!registering && demoConfig?.enabled && demoConfig.accounts?.length) {
+            <section class="demo-access" aria-label="Demonstration accounts">
+              <div class="demo-access-heading"><span class="demo-indicator">DEMO ENVIRONMENT</span><p>Select an account to fill the login form.</p></div>
+              <div class="demo-account-list">
+                @for (account of demoConfig.accounts; track account.email) {
+                  <button type="button" class="demo-account" (click)="selectDemoAccount(account.email)">
+                    <span><strong>{{ account.name }}</strong><small>{{ account.email }}</small></span><b>{{ account.role }}</b>
+                  </button>
+                }
+              </div>
+              @if (demoConfig.password) { <p class="demo-password">Shared demo password <code>{{ demoConfig.password }}</code></p> }
+            </section>
+          }
           <form [formGroup]="form" (ngSubmit)="submit()" class="stack-form">
             @if (registering) {
               <div class="name-fields">
@@ -53,7 +68,9 @@ export class AuthPage {
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
+  private readonly api = inject(ReportsService);
   private readonly changeDetector = inject(ChangeDetectorRef);
+  protected demoConfig: DemoConfig | null = null;
   protected readonly form = this.fb.nonNullable.group({
     firstName: ['', [Validators.required, Validators.maxLength(40)]],
     lastName: ['', [Validators.required, Validators.maxLength(40)]],
@@ -66,7 +83,15 @@ export class AuthPage {
   protected error = '';
   protected showPassword = false;
 
+  constructor() {
+    this.api.demoConfig().subscribe({ next: (config) => { this.demoConfig = config; this.changeDetector.markForCheck(); } });
+  }
+
   protected get registering() { return this.router.url.startsWith('/register'); }
+
+  protected selectDemoAccount(email: string) {
+    this.form.patchValue({ email, password: this.demoConfig?.password ?? '' });
+  }
   protected get validForSubmit() {
     const controls = this.form.controls;
     const coreValid = controls.email.valid && controls.password.valid;

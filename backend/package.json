@@ -11,6 +11,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
+    "db:reset:demo": "tsx prisma/reset-demo.ts",
     "db:provision-admin": "tsx prisma/provision-admin.ts",
     "test": "tsx --test src/matching.test.ts"
   },

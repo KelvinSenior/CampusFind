@@ -1,13 +1,14 @@
+import { DatePipe } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ReportsService } from '../core/reports.service';
-import type { ItemReport, ReportFilters } from '../core/models';
+import type { Announcement, ItemReport, ReportFilters } from '../core/models';
 import { ItemCard } from './item-card.component';
 
 const emptyFilters: ReportFilters = { q: '', type: '', category: '', location: '', status: '', date: '', sort: 'newest' };
 
 @Component({
-  imports: [RouterLink, ItemCard],
+  imports: [DatePipe, RouterLink, ItemCard],
   template: `
     <section class="hero">
       <div class="hero-content">
@@ -57,6 +58,17 @@ const emptyFilters: ReportFilters = { q: '', type: '', category: '', location: '
       }
     </section>
 
+    @if (announcements.length) {
+      <section class="announcements-section">
+        <div class="announcements-heading"><div><span class="eyebrow">CAMPUS UPDATES</span><h2>Notices from the campus team</h2></div><a class="text-link" routerLink="/browse">Browse reports <span>→</span></a></div>
+        <div class="announcements-list">
+          @for (announcement of announcements.slice(0, 3); track announcement.id) {
+            <article class="announcement-row"><div><small>{{ announcement.category ?? 'Campus notice' }} · {{ announcement.publishedAt | date:'MMM d, y' }}</small><strong>{{ announcement.title }}</strong><p>{{ announcement.content }}</p></div></article>
+          }
+        </div>
+      </section>
+    }
+
     <section class="how-section">
       <div class="how-intro"><span class="eyebrow">SIMPLE BY DESIGN</span><h2>From missing to<br /><span>back in your hands.</span></h2><p>CampusFind makes the process clear, so you can focus on getting on with campus life.</p></div>
       <div class="steps">
@@ -76,6 +88,7 @@ export class HomePage implements OnInit {
   private readonly reportsService = inject(ReportsService);
   private readonly changeDetector = inject(ChangeDetectorRef);
   protected reports: ItemReport[] = [];
+  protected announcements: Announcement[] = [];
   protected loading = true;
   protected error = '';
 
@@ -91,6 +104,9 @@ export class HomePage implements OnInit {
         this.loading = false;
         this.changeDetector.markForCheck();
       },
+    });
+    this.reportsService.announcements().subscribe({
+      next: ({ announcements }) => { this.announcements = announcements; this.changeDetector.markForCheck(); },
     });
   }
 }

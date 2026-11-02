@@ -10,6 +10,7 @@
         },
         "git remote": true,
         "git ls-remote": true,
-        "git fetch": true
+        "git fetch": true,
+        "neon": true
     }
 }

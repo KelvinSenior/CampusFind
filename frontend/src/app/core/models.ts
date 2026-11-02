@@ -66,12 +66,77 @@ export interface PotentialMatch {
 
 export interface AdminStatistics {
   users: number;
+  totalReports: number;
   lost: number;
   found: number;
   pendingReports: number;
   pendingClaims: number;
   recovered: number;
   openAbuse: number;
+  recentActivities: ActivityRecord[];
+}
+
+export interface ActivityRecord {
+  id: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  createdAt: string;
+  actor?: { id: string; name: string; role: UserRole } | null;
+}
+
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  category: string | null;
+  publishedAt: string;
+  isPublished?: boolean;
+  createdAt?: string;
+}
+
+export interface SavedItem {
+  id: string;
+  createdAt: string;
+  report: ItemReport;
+}
+
+export interface AbuseReportRecord {
+  id: string;
+  reason: string;
+  details: string | null;
+  status: 'OPEN' | 'RESOLVED' | 'REJECTED';
+  createdAt: string;
+  resolvedAt: string | null;
+  report: { id: string; reference: string; itemName: string };
+  reporter: { id: string; name: string; email: string };
+}
+
+export interface StudentAccount {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  status: 'ACTIVE' | 'SUSPENDED';
+  createdAt: string;
+  _count: { reports: number; claims: number };
+}
+
+export interface StudentStatistics {
+  reports: number;
+  lostReports: number;
+  foundReports: number;
+  pendingClaims: number;
+  recoveredItems: number;
+  unreadNotifications: number;
+  potentialMatches: number;
+  recentActivities: ActivityRecord[];
+}
+
+export interface DemoConfig {
+  enabled: boolean;
+  password?: string;
+  accounts?: Array<{ name: string; email: string; role: UserRole }>;
 }
 
 export interface ReportFilters {

@@ -210,8 +210,14 @@ app.post('/api/auth/register', authRateLimit, async (req, res, next) => {
   try {
     const input = registerSchema.parse(req.body);
     const passwordHash = await bcrypt.hash(input.password, 12);
-    const user = await prisma.user.create({
-      data: { name: `${input.firstName} ${input.lastName}`, email: input.email, passwordHash },
+    const user = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: { name: `${input.firstName} ${input.lastName}`, email: input.email, passwordHash },
+      });
+      await tx.activityLog.create({
+        data: { actorId: created.id, action: 'STUDENT_REGISTERED', entityType: 'User', entityId: created.id },
+      });
+      return created;
     });
     const csrfToken = setSession(res, user);
     res.status(201).json({ user: publicUser(user), csrfToken });
@@ -350,15 +356,21 @@ app.patch('/api/reports/:id', requireAuth, requireRole('STUDENT'), async (req: A
       res.status(409).json({ error: 'Only pending or rejected reports can be edited.' });
       return;
     }
-    const report = await prisma.itemReport.update({
-      where: { id },
-      data: {
-        ...input,
-        ...(input.photoUrl !== undefined ? { photoUrl: input.photoUrl || null } : {}),
-        ...(input.dateOccurred ? { dateOccurred: new Date(input.dateOccurred) } : {}),
-        status: 'PENDING',
-      },
-      select: reportSelect,
+    const report = await prisma.$transaction(async (tx) => {
+      const updated = await tx.itemReport.update({
+        where: { id },
+        data: {
+          ...input,
+          ...(input.photoUrl !== undefined ? { photoUrl: input.photoUrl || null } : {}),
+          ...(input.dateOccurred ? { dateOccurred: new Date(input.dateOccurred) } : {}),
+          status: 'PENDING',
+        },
+        select: reportSelect,
+      });
+      await tx.activityLog.create({
+        data: { actorId: req.user!.id, action: 'REPORT_UPDATED', entityType: 'ItemReport', entityId: updated.id },
+      });
+      return updated;
     });
     res.json({ report });
   } catch (error) {
@@ -378,7 +390,12 @@ app.delete('/api/reports/:id', requireAuth, requireRole('STUDENT'), async (req: 
       res.status(409).json({ error: 'Only pending or rejected reports can be deleted.' });
       return;
     }
-    await prisma.itemReport.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.activityLog.create({
+        data: { actorId: req.user!.id, action: 'REPORT_DELETED', entityType: 'ItemReport', entityId: id },
+      });
+      await tx.itemReport.delete({ where: { id } });
+    });
     res.status(204).end();
   } catch (error) {
     next(error);
@@ -522,6 +539,9 @@ app.post('/api/reports/:id/claims', requireAuth, requireRole('STUDENT'), async (
           message: `Someone submitted an ownership claim for "${report.itemName}".`,
         },
       });
+      await tx.activityLog.create({
+        data: { actorId: req.user!.id, action: 'CLAIM_SUBMITTED', entityType: 'Claim', entityId: created.id },
+      });
       return created;
     });
     res.status(201).json({ claim });
@@ -621,6 +641,9 @@ app.patch('/api/claims/:id/review', requireAuth, async (req: AuthenticatedReques
           message: `Your claim for "${claim.report.itemName}" was ${status.toLowerCase()}.`,
         },
       });
+      await tx.activityLog.create({
+        data: { actorId: (req as AuthenticatedRequest).user!.id, action: `CLAIM_${status}`, entityType: 'Claim', entityId: result.id },
+      });
       return result;
     });
     if (!reviewed) {
@@ -637,7 +660,10 @@ app.post('/api/admin/claims/:id/verify-handover', requireAuth, requireRole('ADMI
   try {
     const { handoverCode } = z.object({ handoverCode: z.string().trim().min(8).max(32) }).parse(req.body);
     const claimId = pathId(req);
-    const claim = await prisma.claim.findUnique({ where: { handoverCode } });
+    const claim = await prisma.claim.findUnique({
+      where: { handoverCode },
+      include: { report: { select: { userId: true, itemName: true } } },
+    });
     if (!claim || claim.id !== claimId || claim.status !== 'APPROVED') {
       res.status(404).json({ error: 'Approved claim or handover code not found.' });
       return;
@@ -650,6 +676,9 @@ app.post('/api/admin/claims/:id/verify-handover', requireAuth, requireRole('ADMI
       await tx.itemReport.update({ where: { id: claim.reportId }, data: { status: 'RECOVERED' } });
       await tx.notification.create({
         data: { userId: claim.userId, title: 'Handover completed', message: 'Your item handover has been verified.' },
+      });
+      await tx.notification.create({
+        data: { userId: claim.report.userId, title: 'Item handover completed', message: `The handover for "${claim.report.itemName}" has been verified.` },
       });
       await tx.activityLog.create({
         data: { actorId: (req as AuthenticatedRequest).user!.id, action: 'HANDOVER_VERIFIED', entityType: 'Claim', entityId: claim.id },
@@ -690,9 +719,329 @@ app.patch('/api/notifications/:id/read', requireAuth, async (req: AuthenticatedR
   }
 });
 
+app.get('/api/demo/config', (_req, res) => {
+  const enabled = process.env.DEMO_MODE_ENABLED === 'true'
+    && Boolean(process.env.DEMO_PASSWORD || !isProduction);
+  res.json({
+    enabled,
+    ...(enabled ? {
+      password: process.env.DEMO_PASSWORD ?? (isProduction ? undefined : 'CampusFind@2026'),
+      accounts: [
+        { name: 'CampusFind Administrator', email: 'admin@campusfind.demo', role: 'ADMIN' },
+        { name: 'Daniel Mensah', email: 'daniel@campusfind.demo', role: 'STUDENT' },
+        { name: 'Ama Boateng', email: 'ama@campusfind.demo', role: 'STUDENT' },
+        { name: 'Michael Owusu', email: 'michael@campusfind.demo', role: 'STUDENT' },
+        { name: 'Grace Asante', email: 'grace@campusfind.demo', role: 'STUDENT' },
+        { name: 'Kwame Addo', email: 'kwame@campusfind.demo', role: 'STUDENT' },
+      ],
+    } : {}),
+  });
+});
+
+app.get('/api/announcements', async (_req, res, next) => {
+  try {
+    const announcements = await prisma.announcement.findMany({
+      where: { isPublished: true, publishedAt: { lte: new Date() } },
+      select: { id: true, title: true, content: true, category: true, publishedAt: true },
+      orderBy: { publishedAt: 'desc' },
+      take: 20,
+    });
+    res.json({ announcements });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/saved-items', requireAuth, requireRole('STUDENT'), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const savedItems = await prisma.savedItem.findMany({
+      where: { userId: req.user!.id },
+      select: { id: true, createdAt: true, report: { select: reportSelect } },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({ savedItems });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/saved-items/:id', requireAuth, requireRole('STUDENT'), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const reportId = pathId(req);
+    const report = await prisma.itemReport.findUnique({ where: { id: reportId }, select: { id: true, status: true } });
+    if (!report || !['APPROVED', 'RECOVERED'].includes(report.status)) {
+      res.status(404).json({ error: 'Available report not found.' });
+      return;
+    }
+    const savedItem = await prisma.savedItem.upsert({
+      where: { userId_reportId: { userId: req.user!.id, reportId } },
+      update: {},
+      create: { userId: req.user!.id, reportId },
+      select: { id: true, reportId: true, createdAt: true },
+    });
+    res.status(201).json({ savedItem });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete('/api/saved-items/:id', requireAuth, requireRole('STUDENT'), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const result = await prisma.savedItem.deleteMany({ where: { userId: req.user!.id, reportId: pathId(req) } });
+    if (!result.count) {
+      res.status(404).json({ error: 'Saved item not found.' });
+      return;
+    }
+    res.status(204).end();
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/reports/:id/abuse-reports', requireAuth, requireRole('STUDENT'), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const input = z.object({
+      reason: z.string().trim().min(5).max(120),
+      details: z.string().trim().max(1000).optional(),
+    }).parse(req.body);
+    const reportId = pathId(req);
+    const report = await prisma.itemReport.findUnique({ where: { id: reportId }, select: { id: true, status: true } });
+    if (!report || !['APPROVED', 'RECOVERED'].includes(report.status)) {
+      res.status(404).json({ error: 'Available report not found.' });
+      return;
+    }
+    const abuseReport = await prisma.$transaction(async (tx) => {
+      const created = await tx.abuseReport.create({
+        data: { ...input, reportId, reporterId: req.user!.id },
+        select: { id: true, reason: true, status: true, createdAt: true },
+      });
+      await tx.activityLog.create({
+        data: { actorId: req.user!.id, action: 'ABUSE_REPORT_SUBMITTED', entityType: 'AbuseReport', entityId: created.id },
+      });
+      return created;
+    });
+    res.status(201).json({ abuseReport });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/admin/announcements', requireAuth, requireRole('ADMIN'), async (_req, res, next) => {
+  try {
+    const announcements = await prisma.announcement.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+    res.json({ announcements });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/admin/announcements', requireAuth, requireRole('ADMIN'), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const input = z.object({
+      title: z.string().trim().min(4).max(120),
+      content: z.string().trim().min(10).max(3000),
+      category: z.string().trim().max(40).optional(),
+      isPublished: z.boolean().default(true),
+    }).parse(req.body);
+    const announcement = await prisma.$transaction(async (tx) => {
+      const created = await tx.announcement.create({ data: { ...input, createdById: req.user!.id } });
+      await tx.activityLog.create({
+        data: { actorId: req.user!.id, action: input.isPublished ? 'ANNOUNCEMENT_PUBLISHED' : 'ANNOUNCEMENT_DRAFTED', entityType: 'Announcement', entityId: created.id },
+      });
+      if (input.isPublished) {
+        const students = await tx.user.findMany({ where: { role: 'STUDENT', status: 'ACTIVE' }, select: { id: true } });
+        await tx.notification.createMany({
+          data: students.map((student) => ({
+            userId: student.id,
+            title: 'New campus announcement',
+            message: `A new notice was published: ${created.title}`,
+          })),
+        });
+      }
+      return created;
+    });
+    res.status(201).json({ announcement });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch('/api/admin/announcements/:id', requireAuth, requireRole('ADMIN'), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const input = z.object({
+      title: z.string().trim().min(4).max(120).optional(),
+      content: z.string().trim().min(10).max(3000).optional(),
+      category: z.string().trim().max(40).nullable().optional(),
+      isPublished: z.boolean().optional(),
+    }).refine((value) => Object.keys(value).length > 0).parse(req.body);
+    const id = pathId(req);
+    const announcement = await prisma.$transaction(async (tx) => {
+      const previous = await tx.announcement.findUniqueOrThrow({ where: { id }, select: { isPublished: true } });
+      const updated = await tx.announcement.update({ where: { id }, data: input });
+      await tx.activityLog.create({
+        data: { actorId: req.user!.id, action: input.isPublished === false ? 'ANNOUNCEMENT_UNPUBLISHED' : 'ANNOUNCEMENT_UPDATED', entityType: 'Announcement', entityId: id },
+      });
+      if (input.isPublished === true && !previous.isPublished) {
+        const students = await tx.user.findMany({ where: { role: 'STUDENT', status: 'ACTIVE' }, select: { id: true } });
+        await tx.notification.createMany({
+          data: students.map((student) => ({
+            userId: student.id,
+            title: 'New campus announcement',
+            message: `A new notice was published: ${updated.title}`,
+          })),
+        });
+      }
+      return updated;
+    });
+    res.json({ announcement });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete('/api/admin/announcements/:id', requireAuth, requireRole('ADMIN'), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const id = pathId(req);
+    await prisma.$transaction(async (tx) => {
+      await tx.activityLog.create({
+        data: { actorId: req.user!.id, action: 'ANNOUNCEMENT_DELETED', entityType: 'Announcement', entityId: id },
+      });
+      await tx.announcement.delete({ where: { id } });
+    });
+    res.status(204).end();
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/admin/abuse-reports', requireAuth, requireRole('ADMIN'), async (req, res, next) => {
+  try {
+    const status = z.enum(['OPEN', 'RESOLVED', 'REJECTED']).optional().parse(req.query.status);
+    const abuseReports = await prisma.abuseReport.findMany({
+      where: status ? { status } : {},
+      select: {
+        id: true, reason: true, details: true, status: true, createdAt: true, resolvedAt: true,
+        report: { select: { id: true, reference: true, itemName: true } },
+        reporter: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+    res.json({ abuseReports });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch('/api/admin/abuse-reports/:id', requireAuth, requireRole('ADMIN'), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const { status } = z.object({ status: z.enum(['RESOLVED', 'REJECTED']) }).parse(req.body);
+    const id = pathId(req);
+    const result = await prisma.$transaction(async (tx) => {
+      const updated = await tx.abuseReport.update({
+        where: { id },
+        data: { status, resolvedAt: status === 'RESOLVED' ? new Date() : null },
+        select: { id: true, status: true, resolvedAt: true },
+      });
+      await tx.activityLog.create({
+        data: { actorId: req.user!.id, action: `ABUSE_REPORT_${status}`, entityType: 'AbuseReport', entityId: id },
+      });
+      return updated;
+    });
+    res.json({ abuseReport: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/admin/users', requireAuth, requireRole('ADMIN'), async (req, res, next) => {
+  try {
+    const q = z.string().trim().max(100).optional().parse(req.query.q);
+    const users = await prisma.user.findMany({
+      where: {
+        role: 'STUDENT',
+        ...(q ? { OR: [{ name: { contains: q, mode: 'insensitive' } }, { email: { contains: q, mode: 'insensitive' } }] } : {}),
+      },
+      select: { id: true, name: true, email: true, role: true, status: true, createdAt: true, _count: { select: { reports: true, claims: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+    res.json({ users });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch('/api/admin/users/:id/status', requireAuth, requireRole('ADMIN'), async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const { status } = z.object({ status: z.enum(['ACTIVE', 'SUSPENDED']) }).parse(req.body);
+    const id = pathId(req);
+    const result = await prisma.$transaction(async (tx) => {
+      const updated = await tx.user.updateMany({ where: { id, role: 'STUDENT' }, data: { status } });
+      if (!updated.count) return null;
+      await tx.activityLog.create({
+        data: { actorId: req.user!.id, action: status === 'SUSPENDED' ? 'USER_SUSPENDED' : 'USER_REACTIVATED', entityType: 'User', entityId: id },
+      });
+      return tx.user.findUniqueOrThrow({ where: { id }, select: { id: true, name: true, email: true, role: true, status: true } });
+    });
+    if (!result) {
+      res.status(404).json({ error: 'Student account not found.' });
+      return;
+    }
+    res.json({ user: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/admin/activity', requireAuth, requireRole('ADMIN'), async (_req, res, next) => {
+  try {
+    const activities = await prisma.activityLog.findMany({
+      include: { actor: { select: { id: true, name: true, role: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+    res.json({ activities });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/my/dashboard', requireAuth, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const userId = req.user!.id;
+    const [reports, claims, unreadNotifications, activities, foundReports] = await Promise.all([
+      prisma.itemReport.findMany({ where: { userId } }),
+      prisma.claim.findMany({ where: { userId }, select: { id: true, status: true } }),
+      prisma.notification.count({ where: { userId, isRead: false } }),
+      prisma.activityLog.findMany({ where: { actorId: userId }, orderBy: { createdAt: 'desc' }, take: 10 }),
+      prisma.itemReport.findMany({ where: { reportType: 'FOUND', status: 'APPROVED', userId: { not: userId } }, take: 200 }),
+    ]);
+    const lostReports = reports.filter((report) => report.reportType === 'LOST');
+    const potentialMatches = lostReports.filter((lost) => (
+      lost.status === 'APPROVED' && findPotentialMatches(lost, foundReports).length > 0
+    )).length;
+    res.json({
+      reports: reports.length,
+      lostReports: lostReports.length,
+      foundReports: reports.filter((report) => report.reportType === 'FOUND').length,
+      pendingClaims: claims.filter((claim) => claim.status === 'PENDING').length,
+      recoveredItems: reports.filter((report) => report.status === 'RECOVERED').length + claims.filter((claim) => claim.status === 'COMPLETED').length,
+      unreadNotifications,
+      potentialMatches,
+      recentActivities: activities,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get('/api/admin/dashboard', requireAuth, requireRole('ADMIN'), async (_req, res, next) => {
   try {
-    const [users, lost, found, pendingReports, pendingClaims, recovered, openAbuse] = await Promise.all([
+    const [users, lost, found, pendingReports, pendingClaims, recovered, openAbuse, recentActivities] = await Promise.all([
       prisma.user.count({ where: { role: 'STUDENT' } }),
       prisma.itemReport.count({ where: { reportType: 'LOST' } }),
       prisma.itemReport.count({ where: { reportType: 'FOUND' } }),
@@ -700,8 +1049,13 @@ app.get('/api/admin/dashboard', requireAuth, requireRole('ADMIN'), async (_req, 
       prisma.claim.count({ where: { status: 'PENDING' } }),
       prisma.itemReport.count({ where: { status: 'RECOVERED' } }),
       prisma.abuseReport.count({ where: { status: 'OPEN' } }),
+      prisma.activityLog.findMany({
+        include: { actor: { select: { id: true, name: true, role: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      }),
     ]);
-    res.json({ users, lost, found, pendingReports, pendingClaims, recovered, openAbuse });
+    res.json({ users, totalReports: lost + found, lost, found, pendingReports, pendingClaims, recovered, openAbuse, recentActivities });
   } catch (error) {
     next(error);
   }
