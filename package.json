@@ -11,7 +11,6 @@
     "dev": "concurrently -k -n api,web \"npm run dev --workspace=backend\" \"npm run dev --workspace=frontend\"",
     "dev:lan": "concurrently -k -n api,web \"npm run dev --workspace=backend\" \"npm run dev:lan --workspace=frontend\"",
     "build": "npm run db:generate -w backend && npm run build -w backend && npm run build -w frontend",
-    "vercel-build": "npm run db:generate -w backend && npm run build -w backend && npm run build -w frontend",
     "test": "npm test -w backend && npm test -w frontend -- --watch=false"
   },
   "engines": {
