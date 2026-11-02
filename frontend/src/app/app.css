@@ -112,25 +112,43 @@
 
 @media (max-width: 720px) {
   .site-header {
-    height: 66px;
-    padding: 0 18px;
+    display: grid;
+    gap: 10px 12px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    height: auto;
+    padding: 11px 18px 0;
+  }
+
+  .brand {
+    min-width: 0;
   }
 
   .main-nav {
-    gap: 14px;
+    gap: 18px;
+    grid-column: 1 / -1;
+    margin: 0 -18px;
+    overflow-x: auto;
+    padding: 0 18px 11px;
+    scrollbar-width: none;
+    white-space: nowrap;
+  }
+
+  .main-nav::-webkit-scrollbar {
+    display: none;
   }
 
   .main-nav a {
+    flex: 0 0 auto;
     font-size: 12px;
   }
 
   .header-actions {
-    gap: 11px;
+    gap: 10px;
+    justify-self: end;
   }
 
   .demo-indicator {
-    font-size: 7px;
-    padding: 5px 6px;
+    display: none;
   }
 
   .welcome-name {
@@ -147,23 +165,29 @@
 
 @media (max-width: 420px) {
   .brand {
-    font-size: 16px;
+    font-size: 15px;
+    gap: 7px;
   }
 
   .brand-mark {
-    height: 30px;
-    width: 30px;
+    height: 29px;
+    width: 29px;
   }
 
   .main-nav {
-    gap: 9px;
+    gap: 16px;
   }
 
-  .main-nav a {
-    font-size: 11px;
+  .header-actions {
+    gap: 8px;
   }
 
-  .demo-indicator {
-    display: none;
+  .header-actions .button-small {
+    min-height: 34px;
+    padding: 0 10px;
+  }
+
+  .login-link {
+    font-size: 12px;
   }
 }

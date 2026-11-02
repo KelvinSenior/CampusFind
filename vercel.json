@@ -6,7 +6,7 @@
       "framework": "express",
       "entrypoint": "src/app.ts",
       "installCommand": "npm ci --workspaces=false",
-      "buildCommand": "npm run db:generate && npm run build && npm prune --omit=dev --workspaces=false",
+      "buildCommand": "npm run db:generate && npm run build && node -e \"require.resolve('express')\"",
       "functions": {
         "src/app.ts": {
           "maxDuration": 30,
