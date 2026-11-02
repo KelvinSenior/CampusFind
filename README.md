@@ -37,7 +37,7 @@ Lost property on campus is often handled through scattered messages, office visi
 
 `frontend/` contains the Angular single-page application. `backend/` contains the Express API and Prisma schema. The app is designed to be deployed behind a single Vercel project, with the frontend and API sharing the same domain and using same-origin `/api/*` calls.
 
-For Vercel, set the project **Root Directory** to the repository root so it reads the root `vercel.json` and builds both services. The backend service installs from `backend/package-lock.json`; its install and build steps verify that the API's production dependencies resolve before deployment. Redeploy after changing the Vercel configuration.
+For Vercel, set the project **Root Directory** to the repository root so it uses the root `vercel.json` and package lockfile. The root build creates the Angular static site and the API functions; API runtime dependencies are declared at the repository root so Vercel includes them with each function. The rewrite preserves Angular client-side routes without intercepting `/api` requests. Redeploy after changing the Vercel configuration.
 
 ```text
 CampusFind/

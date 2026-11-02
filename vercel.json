@@ -1,44 +1,18 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "services": {
-    "backend": {
-      "root": "backend",
-      "framework": "express",
-      "entrypoint": "src/app.ts",
-      "installCommand": "if [ -f backend/package-lock.json ]; then cd backend; fi && npm ci --workspaces=false && npm ls express --depth=0 --workspaces=false",
-      "buildCommand": "if [ -f backend/package.json ]; then cd backend; fi && npm run db:generate && npm run build && npm ls --omit=dev --depth=0 --workspaces=false",
-      "functions": {
-        "src/app.ts": {
-          "maxDuration": 30
-        }
-      }
-    },
-    "frontend": {
-      "root": "frontend",
-      "framework": "angular",
-      "installCommand": "npm ci --workspaces=false --include=optional",
-      "buildCommand": "npm run build",
-      "outputDirectory": "dist/frontend/browser"
+  "framework": null,
+  "installCommand": "npm ci --include=optional && npm ci --prefix backend --workspaces=false",
+  "buildCommand": "npm run vercel-build",
+  "outputDirectory": "frontend/dist/frontend/browser",
+  "functions": {
+    "api/*.ts": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
     {
-      "source": "/api",
-      "destination": {
-        "service": "backend"
-      }
-    },
-    {
-      "source": "/api/(.*)",
-      "destination": {
-        "service": "backend"
-      }
-    },
-    {
-      "source": "/(.*)",
-      "destination": {
-        "service": "frontend"
-      }
+      "source": "/:path((?!api).*)",
+      "destination": "/index.html"
     }
   ]
 }
