@@ -5,12 +5,11 @@
       "root": "backend",
       "framework": "express",
       "entrypoint": "src/app.ts",
-      "installCommand": "npm ci --workspaces=false",
-      "buildCommand": "npm run db:generate && npm run build && node -e \"require.resolve('express')\"",
+      "installCommand": "if [ -f backend/package-lock.json ]; then cd backend; fi && npm ci --workspaces=false && npm ls express --depth=0 --workspaces=false",
+      "buildCommand": "if [ -f backend/package.json ]; then cd backend; fi && npm run db:generate && npm run build && npm ls --omit=dev --depth=0 --workspaces=false",
       "functions": {
         "src/app.ts": {
-          "maxDuration": 30,
-          "includeFiles": "node_modules/**"
+          "maxDuration": 30
         }
       }
     },
