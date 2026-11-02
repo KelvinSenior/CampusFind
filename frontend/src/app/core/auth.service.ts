@@ -2,6 +2,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { inject, Injectable, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import type { User } from './models';
+import { getHttpErrorMessage } from './http-error';
 
 const API_URL = '/api';
 
@@ -51,7 +52,10 @@ export class AuthService {
         this.sessionError.set(null);
         return false;
       }
-      this.sessionError.set('We could not verify your session. Check that the CampusFind API is running, then try again.');
+      this.sessionError.set(getHttpErrorMessage(
+        error,
+        'We could not verify your session. Check the API configuration and try again.',
+      ));
       return false;
     }
   }

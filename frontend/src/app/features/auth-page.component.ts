@@ -1,8 +1,8 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectorRef, Component, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../core/auth.service';
+import { getHttpErrorMessage } from '../core/http-error';
 import { ReportsService } from '../core/reports.service';
 import type { DemoConfig } from '../core/models';
 
@@ -116,9 +116,7 @@ export class AuthPage {
       else await this.auth.login(email, password);
       await this.router.navigateByUrl(this.auth.user()?.role === 'ADMIN' ? '/admin' : '/dashboard');
     } catch (error) {
-      this.error = error instanceof HttpErrorResponse
-        ? error.error?.error ?? 'Unable to connect to CampusFind. Check that the API is running.'
-        : 'Something went wrong. Please try again.';
+      this.error = getHttpErrorMessage(error, 'Sign in failed. Please try again.');
     } finally {
       this.busy = false;
       this.changeDetector.markForCheck();
