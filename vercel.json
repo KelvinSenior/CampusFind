@@ -1,25 +1,44 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "npm install",
-  "buildCommand": "npm run vercel-build",
-  "outputDirectory": "frontend/dist/frontend/browser",
-  "functions": {
-    "api/**/*.ts": {
-      "maxDuration": 30
+  "services": {
+    "backend": {
+      "root": "backend",
+      "framework": "express",
+      "entrypoint": "src/app.ts",
+      "installCommand": "npm ci",
+      "buildCommand": "npm run db:generate && npm run build",
+      "functions": {
+        "src/app.ts": {
+          "maxDuration": 30
+        }
+      }
+    },
+    "frontend": {
+      "root": "frontend",
+      "framework": "angular",
+      "installCommand": "npm ci",
+      "buildCommand": "npm run build",
+      "outputDirectory": "dist/frontend/browser"
     }
   },
   "rewrites": [
     {
       "source": "/api",
-      "destination": "/api"
+      "destination": {
+        "service": "backend"
+      }
     },
     {
-      "source": "/api/:path*",
-      "destination": "/api/:path*"
+      "source": "/api/(.*)",
+      "destination": {
+        "service": "backend"
+      }
     },
     {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": {
+        "service": "frontend"
+      }
     }
   ]
 }
